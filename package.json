@@ -1,11 +1,15 @@
 {
   "name": "chatup-blacklist",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A Chatup plugin to blacklist messages containing specific strings",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Guillaume Besson",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/geekuillaume/chatup-blacklist.git"
+  }
 }
