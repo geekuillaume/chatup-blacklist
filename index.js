@@ -1,3 +1,7 @@
+var jwt = require('jsonwebtoken');
+var _ = require('lodash');
+var bodyParser = require('body-parser');
+
 module.exports = function chatupBlacklist(options) {
   if (!options) {options = {}}
   var redisSetName = options.redisSetName || 'chatup:blacklist:words';
@@ -25,7 +29,7 @@ module.exports = function chatupBlacklist(options) {
     });
   }
 
-  return function chatupBlacklistMiddleware(ctx, next) {
+  var chatupBlacklistMiddleware = function(ctx, next) {
     redisConnection = ctx.redisConnection;
     if (updaterTimer === null) {
       updaterTimer = setInterval(updateWords, redisUpdateInterval);
@@ -47,4 +51,47 @@ module.exports = function chatupBlacklist(options) {
     if (lastUpdated === -1) {updateWordsPromise.then(checkWords)}
     else {checkWords()}
   }
+
+  var dispatcherPlugin = function(parent) {
+    parent._app.post('/plugin/blacklist', bodyParser.text(), function (req, res) {
+      if (!_.isString(req.body)) {
+        return res.status(400).send({ status: 'error', err: 'No body' });
+      }
+      jwt.verify(req.body,
+        parent._conf.jwt.key,
+        parent._conf.jwt.options,
+        function (err, decoded) {
+          if (err) {
+            return res.status(401).send({ status: 'error', err: 'Wrong JWT' });
+          }
+          if (!_.isObject(decoded)) {
+            return res.status(400).send({ status: 'error', err: 'Wrong JWT content'});
+          }
+          var redisMulti = parent._redisConnection.multi();
+          if (decoded.blacklistAdd) {
+            redisMulti.sadd(redisSetName, decoded.blacklistAdd);
+          }
+          if (decoded.blacklistRemove) {
+            redisMulti.srem(redisSetName, decoded.blacklistRemove);
+          }
+          if (decoded.muteAdd) {
+            redisMulti.sadd(redisMutedSetName, decoded.muteAdd);
+          }
+          if (decoded.muteRemove) {
+            redisMulti.srem(redisMutedSetName, decoded.muteRemove);
+          }
+          redisMulti.exec(function (err) {
+            if (err) {
+              logger.captureError(err);
+              return res.status(500).send(err);
+            }
+            res.sendStatus(200);
+          });
+        }
+      );
+    });
+  }
+
+  chatupBlacklistMiddleware.dispatcher = dispatcherPlugin;
+  return chatupBlacklistMiddleware;
 }
