@@ -2,14 +2,18 @@ var jwt = require('jsonwebtoken');
 var _ = require('lodash');
 var bodyParser = require('body-parser');
 
+console.log('coucou')
+
 module.exports = function chatupBlacklist(options) {
   if (!options) {options = {}}
   var redisSetName = options.redisSetName || 'chatup:blacklist:words';
   var redisMutedSetName = options.redisMutedSetName || 'chatup:blacklist:muted';
   var redisUpdateInterval = options.redisUpdateInterval || 2000;
-  var mutedWordsReplacement = options.mutedWordsReplacement || '***';
+  var mutedWordsReplacement = options.mutedWordsReplacement || ' *** ';
   var blacklistedWords = [];
+  var blacklistedRegex;
   var mutedWords = [];
+  var mutedRegex;
   var redisConnection = null;
   var updaterTimer = null;
   var updateWordsPromise = null;
@@ -23,7 +27,9 @@ module.exports = function chatupBlacklist(options) {
       .exec(function(err, results) {
         lastUpdated = Date.now();
         blacklistedWords = results[0] || [];
+        blacklistedRegex = new RegExp(`(?:^|\\s)(${blacklistedWords.join('|').replace('.', '\\.')})(?:$|\\s)`, 'g')
         mutedWords = results[1] || [];
+        mutedRegex = new RegExp(`(?:^|\\s)(${mutedWords.join('|').replace('.', '\\.')})(?:$|\\s)`, 'g')
         resolve();
       })
     });
@@ -36,15 +42,11 @@ module.exports = function chatupBlacklist(options) {
       updateWords();
     }
     var checkWords = function() {
-      for (var i = 0; i < blacklistedWords.length; i++) {
-        if (ctx.msg.msg.indexOf(blacklistedWords[i]) !== -1) {
-          return next({status: 'error', err: 'blacklistedWord'});
-        }
+      if (blacklistedWords.length && ctx.msg.msg.match(blacklistedRegex) !== null) {
+        return next({status: 'error', err: 'blacklistedWord'});
       }
-      for (var i = 0; i < mutedWords.length; i++) {
-        if (ctx.msg.msg.indexOf(mutedWords[i]) !== -1) {
-          ctx.msg.msg = ctx.msg.msg.replace(mutedWords[i], mutedWordsReplacement);
-        }
+      if(mutedWords.length) {
+        ctx.msg.msg = ctx.msg.msg.replace(mutedRegex, mutedWordsReplacement)
       }
       return next();
     }

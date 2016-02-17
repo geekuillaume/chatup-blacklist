@@ -1,6 +1,6 @@
 # ChatUp Blacklist Plugin
 
-A ChatUp plugin to block messages containing specific strings. The blacklisted strings are stored on Redis and can be changed on the fly. The plugin can also 'mute' some strings that are replaced by another string, like '***'.
+A ChatUp plugin to block messages containing specific strings. The blacklisted strings are stored on Redis and can be changed on the fly. The plugin can also 'mute' some strings that are replaced by another string, like '\*\*\*'.
 
 ## Example
 
